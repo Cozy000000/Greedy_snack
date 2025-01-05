@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>贪吃蛇游戏</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+            background-color: #282c34;
+            font-family: 'Arial', sans-serif;
+            color: #fff;
+            margin: 0;
+        }
+
+        #scoreBoard {
+            margin-top: 20px;
+            font-size: 24px;
+        }
+
+        #scoreBoard h1, #scoreBoard h2 {
+            margin: 5px 0;
+        }
+
+        #startMessage {
+            font-size: 36px;
+            font-weight: bold;
+            color: #f0f0f0;
+            margin-top: 20px;
+            text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.5);
+        }
+
+        #gameArea {
+            width: 1200px;
+            height: 500px;
+            border-radius: 8px;
+            border: 3px solid #333;
+            position: relative;
+            background: linear-gradient(45deg, #1f1f1f, #2e2e2e);
+            box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.6);
+            overflow: hidden;
+        }
+
+        .snake {
+            background-color: #39b54a;
+            position: absolute;
+            border-radius: 4px;
+        }
+
+        .food {
+            background-color: #ff4c4c;
+            position: absolute;
+            border-radius: 50%;
+            box-shadow: 0 0 8px rgba(255, 0, 0, 0.5);
+        }
+
+        .special-food {
+            background-color: #ffa500;
+            position: absolute;
+            border-radius: 50%;
+            box-shadow: 0 0 8px rgba(255, 165, 0, 0.5);
+        }
+
+        .eye {
+            background-color: #fff; /* 眼睛的颜色 */
+            position: absolute;
+            border-radius: 50%;
+        }
+
+        .eye-left {
+            left: 25%;
+            top: 10%;
+        }
+
+        .eye-right {
+            left: 50%;
+            top: 10%;
+            transform: translateX(-50%);
+        }
+
+        @keyframes snakeMove {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+
+        @keyframes foodGlow {
+            0% { box-shadow: 0 0 10px rgba(255, 0, 0, 0.5); }
+            100% { box-shadow: 0 0 20px rgba(255, 0, 0, 0.8); }
+        }
+
+    </style>
+</head>
+<body>
+    <div id="scoreBoard">
+        <h1>Score: <span id="score">0</span></h1>
+        <h2>Highest score: <span id="highScore">0</span></h2>
+    </div>
+    <div id="startMessage">Press any button to begin the game</div>
+    <div id="gameArea"></div>
+    
+    <script>
+        const gameArea = document.getElementById('gameArea');
+        const scoreDisplay = document.getElementById('score');
+        const highScoreDisplay = document.getElementById('highScore');
+        const startMessage = document.getElementById('startMessage');
+        const boxSize = 20;
+        let snake = [];
+        let direction = { x: 0, y: 0 };
+        let food = {};
+        let score = 0;
+        let highScore = parseInt(localStorage.getItem('highScore')) || 0;
+        let gameStarted = false;
+        let gameLoopInterval;
+        const gameSpeed = 100;
+
+        function initGame() {
+            startMessage.style.display = 'none';
+            direction = { x: 0, y: 0 };
+            snake = [{ x: 10, y: 10 }];
+            score = 0;
+            food = generateFood();
+            while (food.x === snake[0].x && food.y === snake[0].y) {
+                food = generateFood();
+            }
+            updateScore();
+            localStorage.removeItem('highScore');
+            clearInterval(gameLoopInterval);
+            gameLoopInterval = setInterval(gameLoop, gameSpeed);
+        }
+
+        function gameLoop() {
+            update();
+            draw();
+        }
+
+        function update() {
+            const head = { x: snake[0].x + direction.x, y: snake[0].y + direction.y };
+            if (head.x < 0) head.x = Math.floor(gameArea.clientWidth / boxSize) - 1;
+            if (head.x >= Math.floor(gameArea.clientWidth / boxSize)) head.x = 0;
+            if (head.y < 0) head.y = Math.floor(gameArea.clientHeight / boxSize) - 1;
+            if (head.y >= Math.floor(gameArea.clientHeight / boxSize)) head.y = 0;
+
+            if (snake.slice(1).some(segment => segment.x === head.x && segment.y === head.y)) {
+                updateScore();
+                localStorage.setItem('highScore', highScore);
+                alert('Game Over！');
+                initGame();
+                return;
+            }
+
+            const foodWidth = food.type === 'special' ? 2 : 1;
+            const foodHeight = food.type === 'special' ? 2 : 1;
+            if (head.x < food.x + foodWidth && head.x + 1 > food.x && head.y < food.y + foodHeight && head.y + 1 > food.y) {
+                if (food.type === 'special') {
+                    score += 50;
+                    snake.push({ x: snake[snake.length - 1].x, y: snake[snake.length - 1].y });
+                    snake.push({ x: snake[snake.length - 1].x, y: snake[snake.length - 1].y });
+                } else {
+                    score += 10;
+                    snake.push({ x: snake[snake.length - 1].x, y: snake[snake.length - 1].y });
+                }
+                updateScore();
+                food = generateFood();
+                while (snake.some(segment => segment.x === food.x && segment.y === food.y)) {
+                    food = generateFood();
+                }
+            }
+
+            snake.unshift(head);
+            snake.pop();
+        }
+
+        function draw() {
+            gameArea.innerHTML = '';
+            snake.forEach((segment, index) => {
+                const snakePart = document.createElement('div');
+                snakePart.classList.add('snake');
+                snakePart.style.width = `${boxSize}px`;
+                snakePart.style.height = `${boxSize}px`;
+                snakePart.style.left = `${segment.x * boxSize}px`;
+                snakePart.style.top = `${segment.y * boxSize}px`;
+                snakePart.style.animation = 'snakeMove 0.3s ease';
+                gameArea.appendChild(snakePart);
+
+                // 只有蛇头添加眼睛
+                if (index === 0) {
+                    const eyeLeft = document.createElement('div');
+                    const eyeRight = document.createElement('div');
+                    eyeLeft.classList.add('eye', 'eye-left');
+                    eyeRight.classList.add('eye', 'eye-right');
+                    eyeLeft.style.width = `${boxSize / 4}px`;
+                    eyeLeft.style.height = `${boxSize / 4}px`;
+                    eyeRight.style.width = `${boxSize / 4}px`;
+                    eyeRight.style.height = `${boxSize / 4}px`;
+                    snakePart.appendChild(eyeLeft);
+                    snakePart.appendChild(eyeRight);
+                }
+            });
+
+            const foodElement = document.createElement('div');
+            foodElement.classList.add(food.type === 'special' ? 'special-food' : 'food');
+            foodElement.style.width = food.type === 'special' ? `${boxSize * 2}px` : `${boxSize}px`;
+            foodElement.style.height = food.type === 'special' ? `${boxSize * 2}px` : `${boxSize}px`;
+            foodElement.style.left = `${food.x * boxSize}px`;
+            foodElement.style.top = `${food.y * boxSize}px`;
+            foodElement.style.animation = 'foodGlow 1s ease-in-out infinite';
+            gameArea.appendChild(foodElement);
+        }
+
+        function generateFood() {
+            const isSpecial = Math.random() < 0.30;
+            let foodX, foodY;
+            do {
+                foodX = Math.floor(Math.random() * (gameArea.clientWidth / boxSize));
+                foodY = Math.floor(Math.random() * (gameArea.clientHeight / boxSize));
+            } while (snake.some(segment => segment.x === foodX && segment.y === foodY));
+            return { x: foodX, y: foodY, type: isSpecial ? 'special' : 'normal' };
+        }
+
+        function updateScore() {
+            scoreDisplay.innerText = score;
+            if (score > highScore) {
+                highScore = score;
+                highScoreDisplay.innerText = highScore;
+                localStorage.setItem('highScore', highScore);
+            }
+        }
+
+        function startGame() {
+            if (!gameStarted) {
+                gameStarted = true;
+                initGame();
+            }
+        }
+
+        document.addEventListener('keydown', (event) => {
+            if (!gameStarted) {
+                startGame();
+            } else {
+                if (event.key === 'w' && direction.y === 0) {
+                    direction = { x: 0, y: -1 };
+                } else if (event.key === 's' && direction.y === 0) {
+                    direction = { x: 0, y: 1 };
+                } else if (event.key === 'a' && direction.x === 0) {
+                    direction = { x: -1, y: 0 };
+                } else if (event.key === 'd' && direction.x === 0) {
+                    direction = { x: 1, y: 0 };
+                }
+            }
+        });
+    </script>
+</body>
+</html>
